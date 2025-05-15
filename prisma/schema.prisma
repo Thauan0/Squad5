@@ -1,0 +1,119 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                 Int                  @id @default(autoincrement())
+  nome               String
+  idRegistro         String?              @unique
+  email              String               @unique
+  senha_hash         String
+  pontuacao_total    Int                  @default(0)
+  nivel              Int                  @default(1)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  registrosAtividade RegistroAtividade[]
+  conquistas         UsuarioConquista[]
+  refreshTokens      RefreshToken[]      // Adicionado para refresh tokens
+
+  @@map("usuarios")
+}
+
+model RegistroAtividade {
+  id          Int       @id @default(autoincrement())
+  data_hora   DateTime  @default(now())
+  observacao  String?
+  usuario_id  Int
+  acao_id     Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  usuario     Usuario   @relation(fields: [usuario_id], references: [id])
+  acao        AcaoSustentavel @relation(fields: [acao_id], references: [id])
+
+  @@map("registros_atividade")
+}
+
+model AcaoSustentavel {
+  id                 Int                  @id @default(autoincrement())
+  nome               String
+  descricao          String?
+  pontos             Int
+  categoria          String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  registrosAtividade RegistroAtividade[]
+  desafios           DesafioAcao[]
+
+  @@map("acoes_sustentaveis")
+}
+
+model Desafio {
+  id                Int       @id @default(autoincrement())
+  tipo              String?
+  titulo            String
+  descricao         String?
+  data_inicio       DateTime?
+  data_fim          DateTime?
+  pontos_recompensa Int
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  conquistasObtidas UsuarioConquista[]
+  acoes             DesafioAcao[]
+
+  @@map("desafios")
+}
+
+model DesafioAcao {
+  desafioId         Int
+  acaoSustentavelId Int
+  desafio           Desafio         @relation(fields: [desafioId], references: [id], onDelete: Cascade) // Adicionado onDelete
+  acaoSustentavel   AcaoSustentavel @relation(fields: [acaoSustentavelId], references: [id], onDelete: Cascade) // Adicionado onDelete
+  assignedAt        DateTime        @default(now())
+
+  @@id([desafioId, acaoSustentavelId])
+  @@map("desafios_acoes")
+}
+
+model UsuarioConquista {
+  id             Int       @id @default(autoincrement())
+  usuario_id     Int
+  id_desafio     Int
+  data_obtencao  DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  usuario        Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade) // Adicionado onDelete
+  desafio        Desafio   @relation(fields: [id_desafio], references: [id], onDelete: Cascade) // Adicionado onDelete
+
+  @@map("usuario_conquistas")
+}
+
+model Dica {
+  id             Int      @id @default(autoincrement())
+  titulo         String
+  conteudo       String
+  categoria_dica String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("dicas")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    Int
+  usuario   Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
