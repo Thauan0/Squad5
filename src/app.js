@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
     res.send('API Plantando 🌱 Funcionando!');
 });
 
+
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send({error: 'Algo deu errado!', details: err.message});

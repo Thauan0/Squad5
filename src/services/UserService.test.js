@@ -57,3 +57,6 @@ export const buscarUsuarioPorId = async (id) => {
 
     return usuario;
 };
+
+
+
