@@ -1,9 +1,0 @@
-// temp-schema.prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model Test {
-  id Int @id
-}

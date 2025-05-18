@@ -13,7 +13,9 @@
     "migrate:dev": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
     "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio"
+    "prisma:studio": "npx prisma studio",
+    "db:apply-migration": "node scripts/apply-migration.js",
+    "db:generate": "npx prisma generate"
   },
   "repository": {
     "type": "git",
