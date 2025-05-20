@@ -1,8 +1,7 @@
 import { Client } from 'pg'; // MUDANÇA AQUI
 
 // SUBSTITUA PELA SUA DATABASE_URL COMPLETA DO ARQUIVO .ENV
-const connectionString = "postgresql://neondb_owner:npg_n4aeiHhzJ0lr@ep-lucky-sunset-a4lwvgjf-pooler.us-east-1.aws.neon.tech:5432/neondb?sslmode=require";
-
+const connectionString = "postgresql://neondb_owner:npg_waBzrHyGj3h0@ep-rapid-math-a4qyzbel.us-east-1.aws.neon.tech:5432/neondb?sslmode=require";
 // Se você já tem o dotenv configurado e quer pegar do .env (opcional para este teste rápido):
 // import dotenv from 'dotenv';
 // dotenv.config();
