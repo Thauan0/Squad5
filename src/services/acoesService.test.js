@@ -2,8 +2,8 @@
 import { v4 as uuidv4 } from 'uuid';
 
 export const criarAcao = async(acao) => {
-    const { nome, descricao, pontos, categoria, registrosAtividade, 
-        RegistroAtividade, desafios, DesafioAcao } = acao;
+    const { nome, descricao, pontos, categoria, 
+        createdAt, updatedAt } = acao;
 
         //Criar alguma lógica para verificação 
 
@@ -14,11 +14,8 @@ export const criarAcao = async(acao) => {
             descricao,
             pontos,
             categoria,
-            updatedAt: null,
-            registrosAtividade,
-            RegistroAtividade,
-            desafios,
-            DesafioAcao
+            createdAt,
+            updatedAt    
         },
     });
 }
@@ -27,16 +24,12 @@ export const listarAcoes = async () => {
     try {
     return await prisma.AcaoSustentavel.findMany({
         select: {
-            id: true,
-            nome:true,
-            descricao:true,
-            pontos:true,
-            categoria:true,
+          nome: true,
+            descricao: true,
+            pontos: true,
+            categoria: true,
             createdAt: true,
-            updatedAt:true,
-            registrosAtividade:true,
-            desafios:true, 
-            DesafioAcao:true
+            updatedAt: true    
         }
     });
 }
@@ -48,8 +41,7 @@ catch(err) {
 
 export const atualizarAcao = async(acaoAtualizada, idAcao) => {
     try {
-    const { nome, descricao, pontos, categoria, registrosAtividade, 
-        RegistroAtividade, desafios, DesafioAcao } = acaoAtualizada;
+    const { nome, descricao, pontos, categoria, createdAt, updatedAt } = acaoAtualizada;
    
     prisma.AcaoSustentavel.update({
         where:{id: idAcao},
@@ -58,10 +50,8 @@ export const atualizarAcao = async(acaoAtualizada, idAcao) => {
             descricao,
             pontos,
             categoria,
-            registrosAtividade,
-            RegistroAtividade,
-            desafios,
-            DesafioAcao
+            createdAt,
+            updatedAt    
         }
     })
 }

@@ -1,0 +1,33 @@
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: squads_app
+    ports:
+      - "3000:3000" # Mapeia a porta 3000 do host para a 3000 do container
+    env_file:
+      - .env # Carrega as variáveis de ambiente do arquivo .env
+    volumes:
+      # Monta o código fonte para live reload com nodemon (se usado)
+      # Cuidado com node_modules:
+      # Se o seu SO host for diferente do SO da imagem base (Linux Alpine),
+      # é melhor não montar node_modules ou usar um volume nomeado para ele.
+      - ./src:/usr/src/app/src
+      - ./prisma:/usr/src/app/prisma
+      - ./scripts:/usr/src/app/scripts # Se seu script de migração está aqui
+      # - ./package.json:/usr/src/app/package.json # Descomente se quiser refletir mudanças no package.json
+      # - ./package-lock.json:/usr/src/app/package-lock.json # Descomente se quiser refletir mudanças no package-lock.json
+      # Para evitar problemas com node_modules entre host e container:
+      - /usr/src/app/node_modules
+    # Se o seu script de inicialização for `npm run dev` e usar nodemon:
+    command: npm run dev
+    # Se for `npm start`:
+    # command: npm start
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

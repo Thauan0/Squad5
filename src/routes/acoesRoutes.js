@@ -1,15 +1,15 @@
-app.get('/acoes', (req,res) => {
- res.status()   
-})
+import express from "express"
 
-app.post('acoes', (req,res) => {
+import {AcoesController} from "../controllers/acoesController.js"
+import { criarAcao } from "../services/acoesService.test.js";
 
-})
+const router = express.Router();
 
-app.put("acoes", (req,res) => {
+app.get('/acoes', AcoesController.getAction)
 
-})
+app.post('acoes', criarAcao(AcoesController.newAction))
 
-app.delete("acoes",(req,res) => {
+app.put()
 
-})
+app.delete("acoes")
+

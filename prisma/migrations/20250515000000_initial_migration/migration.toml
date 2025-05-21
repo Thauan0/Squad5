@@ -1,0 +1,5 @@
+# This is an empty Prisma Migrate migration file.
+# It will be used by Prisma Migrate to track that the migration has been applied.
+
+migration_name = "20250515000000_initial_migration"
+checksum = "d1579a03b6db1602e5a8f6e739fc905230fa88affa0035ffd1cefe41b3e402c7"

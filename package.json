@@ -6,42 +6,47 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon",
+    "dev": "nodemon src/server.js",
     "lint": "eslint .",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles --forceExit",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --runInBand --detectOpenHandles",
     "format": "prettier --write .",
     "migrate:dev": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
     "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio"
+    "prisma:studio": "npx prisma studio",
+    "db:apply-migration": "node scripts/apply-migration.js",
+    "db:generate": "npx prisma generate"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Thauan0/Squad5.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Thauan0/Squad5/issues"
-  },
-  "homepage": "https://github.com/Thauan0/Squad5#readme",
   "dependencies": {
-    "@prisma/client": "^5.8.0",
+    "@prisma/client": "^5.8.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
     "@types/jest": "^29.5.12",
+    "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
     "nodemon": "^3.0.3",
     "prettier": "^3.2.4",
-    "prisma": "^5.8.0",
+    "prisma": "^5.8.1",
     "supertest": "^6.3.4"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "node"
+    ],
+    "testEnvironment": "node"
   }
 }

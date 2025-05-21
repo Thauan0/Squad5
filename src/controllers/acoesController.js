@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client/edge";
 import { listarAcoes } from "../services/acoesService.test";
+import { deletarAcao } from "../services/acoesService.test";
 
-export default class acoesController { 
+ class AcoesController { 
 
 async getAction(req,res) {
 try { 
@@ -15,14 +16,37 @@ catch(err) {
 
 async newAction(req,res) {
     try {
-const { nome,descricao, pontos, categoria, registrosAtividade, 
-RegistroAtividade, desafios, DesafioAcao } = req.body;
+const { nome,descricao, pontos, categoria, createdAt, updatedAt } = req.body;
 
 //Ainda arrumando essa parte.
-return novaAcao = new acao(nome,descricao,pontos,categoria,registrosAtividade,RegistroAtividade,desafios,DesafioAcao)
+return novaAcao = new AcaoSustentavel(nome,descricao,pontos,categoria,createdAt,updatedAt)
     }
     catch(err) {
-
+        console.log("Erro ao criar uma nova ação: " + err)
+        throw new Error("Aconteceu um erro ao criar uma nova acao");
     }
 }
+
+async deleteAction(req,res) {
+    try {   
+    const {idDesejado} = req.body
+    deletarAcao(idDesejado)
+    res.status(200).json("Ação deletada com sucesso!")
+    }
+    catch(err) {
+        res.status(500).json("Deu erro na hora de deletar")
+    }
 }
+
+async updateAction(req,res) { // PRECISO ARRUMAR AQUI AINDA, NÃO DEU TEMPO. 
+    try{ 
+const {nome, descricao, pontos, categoria} = req.body
+    }
+    catch(err) {
+        res.status(500).json("Ocorreu um erro na hora de atualizar")
+    }
+}
+ 
+}
+
+export default new acoesController
