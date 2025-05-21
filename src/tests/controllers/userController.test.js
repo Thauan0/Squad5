@@ -9,7 +9,7 @@ let mockUserServiceAtualizarUsuario;
 let mockUserServiceDeletarUsuario;
 
 let UserController;
-let HttpErrorModule;
+let HttpErrorModule; // Para instanciar HttpError nos testes se necessário
 
 // Usar jest.unstable_mockModule para ESM
 jest.unstable_mockModule('../../api/users/userService.js', () => {
@@ -30,7 +30,6 @@ jest.unstable_mockModule('../../api/users/userService.js', () => {
 });
 
 beforeAll(async () => {
-  // As importações dinâmicas devem ocorrer após a configuração do mock
   UserController = await import('../../api/users/userController.js');
   HttpErrorModule = await import('../../utils/HttpError.js');
 });
@@ -41,25 +40,29 @@ describe('UserController', () => {
   let mockNext;
 
   beforeEach(() => {
-    // Limpa todos os mocks antes de cada teste
     jest.clearAllMocks();
 
-    mockReq = { body: {}, params: {}, query: {} }; // Adicionado query para exemplos futuros
-    mockRes = {
-      status: jest.fn().mockReturnThis(), // Permite encadeamento como res.status(200).json(...)
-      json: jest.fn(),
-      send: jest.fn(), // Adicionado para o status 204
+    mockReq = { 
+      body: {}, 
+      params: {}, 
+      query: {},
+      // Adicionar um mock para usuarioLogado que pode ser sobrescrito por teste
+      usuarioLogado: { userId: 0 } // Um userId padrão, será sobrescrito nos testes de PUT/DELETE
     };
-    mockNext = jest.fn(); // Mock para a função next (tratamento de erro)
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn(),
+    };
+    mockNext = jest.fn();
   });
 
   // --- Testes para UserController.criar ---
   describe('criar', () => {
     it('deve chamar userService.criarUsuario e retornar 201 com o usuário criado', async () => {
       const dadosEntrada = { nome: 'Novo Usuário', email: 'novo@example.com', senha: 'password123' };
-      const usuarioRetornadoPeloServico = { id: 1, nome: 'Novo Usuário', email: 'novo@example.com' }; // Sem senha_hash
+      const usuarioRetornadoPeloServico = { id: 1, nome: 'Novo Usuário', email: 'novo@example.com' };
       mockReq.body = dadosEntrada;
-
       mockUserServiceCreateUsuario.mockResolvedValueOnce(usuarioRetornadoPeloServico);
 
       await UserController.criar(mockReq, mockRes, mockNext);
@@ -74,14 +77,13 @@ describe('UserController', () => {
       const dadosEntrada = { nome: 'Usuário Conflito', email: 'conflito@example.com', senha: 'password123' };
       const erroDoServico = new HttpErrorModule.HttpError(409, 'Email já cadastrado.');
       mockReq.body = dadosEntrada;
-
       mockUserServiceCreateUsuario.mockRejectedValueOnce(erroDoServico);
 
       await UserController.criar(mockReq, mockRes, mockNext);
 
       expect(mockUserServiceCreateUsuario).toHaveBeenCalledWith(dadosEntrada);
       expect(mockNext).toHaveBeenCalledWith(erroDoServico);
-      expect(mockRes.status).not.toHaveBeenCalled(); // Não deve tentar enviar resposta de sucesso
+      expect(mockRes.status).not.toHaveBeenCalled();
       expect(mockRes.json).not.toHaveBeenCalled();
     });
 
@@ -89,7 +91,6 @@ describe('UserController', () => {
       const dadosEntrada = { nome: 'Usuário Erro Genérico', email: 'generico@example.com', senha: 'password123' };
       const erroGenerico = new Error('Falha inesperada no serviço');
       mockReq.body = dadosEntrada;
-
       mockUserServiceCreateUsuario.mockRejectedValueOnce(erroGenerico);
 
       await UserController.criar(mockReq, mockRes, mockNext);
@@ -156,13 +157,14 @@ describe('UserController', () => {
 
   // --- Testes para UserController.atualizar ---
   describe('atualizar', () => {
-    const usuarioId = '1';
+    const usuarioId = '1'; // String, como vem de req.params
     const dadosAtualizacao = { nome: 'Nome Atualizado' };
     const usuarioAtualizadoMock = { id: 1, nome: 'Nome Atualizado', email: 'original@example.com' };
 
     it('deve chamar userService.atualizarUsuario e retornar 200 com o usuário atualizado', async () => {
       mockReq.params.id = usuarioId;
       mockReq.body = dadosAtualizacao;
+      mockReq.usuarioLogado = { userId: Number(usuarioId) }; // <<< CORREÇÃO: Simula que o usuário logado é o alvo
       mockUserServiceAtualizarUsuario.mockResolvedValueOnce(usuarioAtualizadoMock);
 
       await UserController.atualizar(mockReq, mockRes, mockNext);
@@ -176,6 +178,7 @@ describe('UserController', () => {
     it('deve chamar next com HttpError se o serviço lançar erro por nenhum dado válido (corpo vazio)', async () => {
         mockReq.params.id = usuarioId;
         mockReq.body = {}; // Corpo vazio
+        mockReq.usuarioLogado = { userId: Number(usuarioId) }; // <<< CORREÇÃO
 
         const erroEsperadoPeloServico = new HttpErrorModule.HttpError(400, 'Nenhum dado válido fornecido para atualização.');
         mockUserServiceAtualizarUsuario.mockRejectedValueOnce(erroEsperadoPeloServico);
@@ -189,13 +192,29 @@ describe('UserController', () => {
     it('deve chamar next com HttpError se userService.atualizarUsuario lançar HttpError (ex: não encontrado)', async () => {
       const erroDoServico = new HttpErrorModule.HttpError(404, 'Usuário não encontrado para atualização.');
       mockReq.params.id = usuarioId;
-      mockReq.body = dadosAtualizacao; // Corpo com dados válidos
+      mockReq.body = dadosAtualizacao;
+      mockReq.usuarioLogado = { userId: Number(usuarioId) }; // <<< CORREÇÃO
       mockUserServiceAtualizarUsuario.mockRejectedValueOnce(erroDoServico);
 
       await UserController.atualizar(mockReq, mockRes, mockNext);
 
       expect(mockUserServiceAtualizarUsuario).toHaveBeenCalledWith(usuarioId, dadosAtualizacao);
       expect(mockNext).toHaveBeenCalledWith(erroDoServico);
+    });
+
+    it('deve chamar next com HttpError(403) se tentar atualizar outro usuário', async () => {
+      mockReq.params.id = '2'; // ID do alvo é 2
+      mockReq.body = dadosAtualizacao;
+      mockReq.usuarioLogado = { userId: 1 }; // Usuário logado tem ID 1
+
+      // Não precisamos mockar userService.atualizarUsuario, pois o controller deve barrar antes
+      await UserController.atualizar(mockReq, mockRes, mockNext);
+
+      expect(mockUserServiceAtualizarUsuario).not.toHaveBeenCalled(); // Serviço não deve ser chamado
+      expect(mockNext).toHaveBeenCalledWith(expect.any(HttpErrorModule.HttpError));
+      const errorChamadoComNext = mockNext.mock.calls[0][0];
+      expect(errorChamadoComNext.statusCode).toBe(403);
+      expect(errorChamadoComNext.message).toBe('Você não tem permissão para atualizar este usuário.');
     });
   });
 
@@ -205,32 +224,40 @@ describe('UserController', () => {
 
     it('deve chamar userService.deletarUsuario e retornar 204', async () => {
       mockReq.params.id = usuarioId;
-      // Se o serviço deletarUsuario retornar o objeto deletado, você pode mockar isso.
-      // Se ele não retornar nada (ou você não usar o retorno no controller para 204),
-      // um mockResolvedValueOnce(undefined) ou mockResolvedValueOnce(true) é suficiente.
-      mockUserServiceDeletarUsuario.mockResolvedValueOnce({ id: 1, nome: "Deletado" }); // O serviço retorna o usuário
+      mockReq.usuarioLogado = { userId: Number(usuarioId) }; // <<< CORREÇÃO
+      mockUserServiceDeletarUsuario.mockResolvedValueOnce(undefined); // Para deleção bem-sucedida
 
       await UserController.deletar(mockReq, mockRes, mockNext);
 
       expect(mockUserServiceDeletarUsuario).toHaveBeenCalledWith(usuarioId);
-      // Se seu controller envia 204:
       expect(mockRes.status).toHaveBeenCalledWith(204);
       expect(mockRes.send).toHaveBeenCalledTimes(1);
-      // Se seu controller envia 200 com o objeto:
-      // expect(mockRes.status).toHaveBeenCalledWith(200);
-      // expect(mockRes.json).toHaveBeenCalledWith({ id: 1, nome: "Deletado" });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('deve chamar next com HttpError se userService.deletarUsuario lançar HttpError (ex: não encontrado)', async () => {
       const erroDoServico = new HttpErrorModule.HttpError(404, 'Usuário não encontrado para deleção.');
       mockReq.params.id = usuarioId;
+      mockReq.usuarioLogado = { userId: Number(usuarioId) }; // <<< CORREÇÃO
       mockUserServiceDeletarUsuario.mockRejectedValueOnce(erroDoServico);
 
       await UserController.deletar(mockReq, mockRes, mockNext);
 
       expect(mockUserServiceDeletarUsuario).toHaveBeenCalledWith(usuarioId);
       expect(mockNext).toHaveBeenCalledWith(erroDoServico);
+    });
+
+    it('deve chamar next com HttpError(403) se tentar deletar outro usuário', async () => {
+      mockReq.params.id = '2'; // ID do alvo é 2
+      mockReq.usuarioLogado = { userId: 1 }; // Usuário logado tem ID 1
+
+      await UserController.deletar(mockReq, mockRes, mockNext);
+
+      expect(mockUserServiceDeletarUsuario).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.any(HttpErrorModule.HttpError));
+      const errorChamadoComNext = mockNext.mock.calls[0][0];
+      expect(errorChamadoComNext.statusCode).toBe(403);
+      expect(errorChamadoComNext.message).toBe('Você não tem permissão para deletar este usuário.');
     });
   });
 });
