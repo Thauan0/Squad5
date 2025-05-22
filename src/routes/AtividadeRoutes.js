@@ -1,5 +1,5 @@
 import express from "express";
-import * as AtividadeController from "../controllers/AtividadeController";
+import AtividadeController from "../../src/controllers/AtividadeController";  
 
 const router = express.Router();
 
