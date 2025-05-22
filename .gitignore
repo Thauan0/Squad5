@@ -1,6 +1,66 @@
-node_modules/
-.env
-dist/
-coverage/
-.vscode/
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json # Reports de diagnóstico do Node.js
+pid.[0-9]*.[0-9]*.[0-9]*.[0-9]*.gz # Heapdumps e CPU profiles do Node.js
+
+# Environment variables
+.env
+.env.*
+!.env.example # Mantenha se você tiver um arquivo de exemplo de .env
+
+# Dependencies
+/node_modules
+/bower_components # Se por acaso usar Bower (menos comum hoje em dia)
+
+# Build output
+/dist
+/build
+/out
+/.parcel-cache # Cache do Parcel, se usar
+
+# Test results and coverage
+/coverage
+/test-results
+*.lcov # Cobertura lcov
+
+
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+prisma/test.db-journal
+
+.vscode/
+
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw? # Arquivos swap do Vim
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+*.tgz
+
+
+.yarnclean
+.yarn/ # Yarn PnP
+.pnp.* # Yarn PnP
+
+
+.eslintcache
+.jestcache
+
+-----------------------------------

@@ -1,103 +1,8 @@
 // src/api/users/userController.js
 import * as userService from './userService.js';
-import { HttpError } from '../../utils/HttpError.js'; // Verifique se este caminho está correto para sua estrutura
+import { HttpError } from '../../utils/HttpError.js';
 
-/**
- * @swagger
- * tags:
- *   name: Usuarios
- *   description: Gerenciamento de Usuários
- */
-
-// ----- Schemas Swagger (mantidos como no seu original para referência) -----
-/**
- * @swagger
- * components:
- *   schemas:
- *     Usuario:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: ID do usuário.
- *           example: 1
- *         nome:
- *           type: string
- *           description: Nome do usuário.
- *           example: João Silva
- *         idRegistro:
- *           type: string
- *           nullable: true
- *           description: ID de registro único opcional.
- *           example: RS12345
- *         email:
- *           type: string
- *           format: email
- *           description: Email do usuário.
- *           example: joao.silva@example.com
- *         pontuacao_total:
- *           type: integer
- *           description: Pontuação total do usuário.
- *           example: 150
- *           default: 0
- *         nivel:
- *           type: integer
- *           description: Nível atual do usuário.
- *           example: 2
- *           default: 1
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Data de criação do usuário.
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Data da última atualização do usuário.
- *     UsuarioInput:
- *       type: object
- *       required:
- *         - nome
- *         - email
- *         - senha
- *       properties:
- *         nome:
- *           type: string
- *           example: Maria Souza
- *         idRegistro:
- *           type: string
- *           nullable: true
- *           example: MSK4567
- *         email:
- *           type: string
- *           format: email
- *           example: maria.s@example.com
- *         senha:
- *           type: string
- *           format: password
- *           minLength: 6
- *           example: "senhaF0rte!"
- *     UsuarioUpdateInput:
- *       type: object
- *       properties:
- *         nome:
- *           type: string
- *           example: Maria Oliveira Souza
- *         idRegistro:
- *           type: string
- *           nullable: true
- *           example: MSK4567NOVO
- *         email:
- *           type: string
- *           format: email
- *           example: maria.oliveira@example.com
- *         senha:
- *           type: string
- *           format: password
- *           minLength: 6
- *           example: "novaSenhaSuperF0rte!"
- *       minProperties: 1 # Garante que pelo menos uma propriedade seja enviada
- */
-
+// ... (Swagger Schemas como antes) ...
 
 export async function criar(req, res, next) {
   try {
@@ -120,7 +25,7 @@ export async function listar(req, res, next) {
 export async function buscarPorId(req, res, next) {
   try {
     const { id } = req.params;
-    const usuario = await userService.buscarUsuarioPorId(id);
+    const usuario = await userService.buscarUsuarioPorId(id); // Serviço já valida ID e existência
     res.status(200).json(usuario);
   } catch (error) {
     next(error);
@@ -129,14 +34,40 @@ export async function buscarPorId(req, res, next) {
 
 export async function atualizar(req, res, next) {
   try {
-    const { id } = req.params;
+    const { id: idUsuarioAlvo } = req.params; // String
     const dadosAtualizacao = req.body;
+    
+    if (!req.usuarioLogado || !req.usuarioLogado.userId) {
+        throw new HttpError(401, 'Informações do usuário logado ausentes ou inválidas.');
+    }
+    const { userId: idUsuarioLogado } = req.usuarioLogado;
 
-    // A validação de corpo vazio ou dados inválidos agora é primariamente
-    // responsabilidade do serviço, que pode lançar HttpError(400).
-    // O serviço também lida com o caso de nenhum campo ter sido efetivamente alterado.
-    const usuarioAtualizado = await userService.atualizarUsuario(id, dadosAtualizacao);
+    // 1. Deixe o serviço tentar a operação.
+    //    O userService.atualizarUsuario já valida:
+    //    - Se o ID é numérico (lança 400).
+    //    - Se o usuário alvo existe (lança 404).
+    //    - Se os dados de atualização são válidos (ex: senha curta, lança 400).
+    //    - Se há conflitos de email/idRegistro com OUTROS usuários (lança 409).
+
+    // 2. APÓS o serviço ser chamado (ou antes, se preferir, mas depois de validar o formato do ID do alvo),
+    //    verifique a permissão. Para que o 404 e 400 do serviço tenham precedência,
+    //    a checagem de permissão deve ser feita idealmente após confirmar que o recurso alvo é válido/existe
+    //    ou ser uma regra mais geral.
+    //    No nosso caso, a regra é "usuário só pode atualizar a si mesmo".
+
+    // Se o ID alvo é diferente do ID do usuário logado, é uma tentativa de atualizar outro usuário.
+    if (Number(idUsuarioAlvo) !== idUsuarioLogado) {
+      // Mesmo que o idUsuarioAlvo seja 'abc' ou '99999', Number(idUsuarioAlvo) não será igual a idUsuarioLogado.
+      // Isso lançará 403 ANTES do serviço ter a chance de lançar 400 (ID inválido) ou 404 (não encontrado).
+      // Esta é a causa das falhas nos testes de integração.
+      throw new HttpError(403, 'Você não tem permissão para atualizar este usuário.');
+    }
+    
+    // Se chegou aqui, o usuário está tentando atualizar a si mesmo.
+    // Agora o serviço faz todas as outras validações.
+    const usuarioAtualizado = await userService.atualizarUsuario(idUsuarioAlvo, dadosAtualizacao);
     res.status(200).json(usuarioAtualizado);
+
   } catch (error) {
     next(error);
   }
@@ -144,12 +75,20 @@ export async function atualizar(req, res, next) {
 
 export async function deletar(req, res, next) {
   try {
-    const { id } = req.params;
-    await userService.deletarUsuario(id);
-    // Retorna 204 No Content para deleção bem-sucedida, sem corpo de resposta.
-    // Se preferir retornar o objeto deletado (sem senha), use:
-    // const usuarioDeletado = await userService.deletarUsuario(id);
-    // res.status(200).json(usuarioDeletado);
+    const { id: idUsuarioAlvo } = req.params;
+
+    if (!req.usuarioLogado || !req.usuarioLogado.userId) {
+        throw new HttpError(401, 'Informações do usuário logado ausentes ou inválidas.');
+    }
+    const { userId: idUsuarioLogado } = req.usuarioLogado;
+
+    // Mesma lógica do atualizar: o 403 será lançado se o ID do alvo não for do usuário logado,
+    // antes que o serviço possa verificar se o ID é válido ou se o usuário existe.
+    if (Number(idUsuarioAlvo) !== idUsuarioLogado) {
+      throw new HttpError(403, 'Você não tem permissão para deletar este usuário.');
+    }
+
+    await userService.deletarUsuario(idUsuarioAlvo);
     res.status(204).send();
   } catch (error) {
     next(error);

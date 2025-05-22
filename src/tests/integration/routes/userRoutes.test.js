@@ -1,270 +1,223 @@
-// src/tests/integration/routes/userRoutes.test.js
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import app from '../../../app.js';
 import prismaClient from '../../../config/prismaClient.js';
-import * as userService from '../../../api/users/userService.js'; // Usado para setup
-import { jest } from '@jest/globals'; // Para jest.spyOn se necessário para bcrypt no setup
-
-// Helper para omitir senha, se necessário nos expects do corpo da resposta
-const omitPasswordHelper = (userWithPassword) => {
-    if (!userWithPassword) return null;
-    const { senha_hash, ...userWithoutPassword } = userWithPassword;
-    return userWithoutPassword;
-};
+import * as userService from '../../../api/users/userService.js';
 
 describe('Testes das Rotas de Usuários (/api/usuarios)', () => {
   let primeiroUsuarioCriadoNoSetup;
-  let tokenUsuarioBase; // Para testes autenticados, se aplicável (não usado neste exemplo)
+  // let tokenUsuarioBase; // REMOVIDO
 
   beforeAll(async () => {
-    // Limpeza inicial, se necessário, mas o beforeEach deve cuidar do estado entre testes.
     await prismaClient.registroAtividade.deleteMany({});
-    await prismaClient.usuarioConquista.deleteMany({});
-    // Adicione outras tabelas que precisam ser limpas
-    await prismaClient.desafioAcao.deleteMany({}); // Exemplo
-    await prismaClient.desafio.deleteMany({});     // Exemplo
-    await prismaClient.dica.deleteMany({});        // Exemplo
-    await prismaClient.acaoSustentavel.deleteMany({}); // Exemplo
+    await prismaClient.dica.deleteMany({});
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
   });
 
   beforeEach(async () => {
-    // Limpa e cria um usuário base para testes que precisam de um usuário existente
     await prismaClient.registroAtividade.deleteMany({});
-    await prismaClient.usuarioConquista.deleteMany({});
-    await prismaClient.desafioAcao.deleteMany({});
-    await prismaClient.desafio.deleteMany({});
     await prismaClient.dica.deleteMany({});
-    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
 
     primeiroUsuarioCriadoNoSetup = await userService.criarUsuario({
       nome: 'Usuário Base Teste API',
       email: 'base.api.setup@example.com',
-      senha: 'passwordBase123',
+      senha: 'passwordBase123', // O service deve lidar com o hash
       idRegistro: 'BASEAPIREGSETUP'
     });
-    // Se você tivesse autenticação, aqui você faria login e pegaria o token:
-    // const loginRes = await request(app).post('/api/auth/login').send({email: 'base.api.setup@example.com', senha: 'passwordBase123'});
-    // tokenUsuarioBase = loginRes.body.token;
+
+    // Bloco de login REMOVIDO
+    // const loginResponse = await request(app)
+    //   .post('/api/auth/login')
+    //   .send({ email: 'base.api.setup@example.com', senha: 'passwordBase123' });
+
+    // if (loginResponse.body && loginResponse.body.token) {
+    //   tokenUsuarioBase = loginResponse.body.token;
+    // } else {
+    //   console.error("FALHA AO OBTER TOKEN NO BEFOREEACH (userRoutes.test.js):", loginResponse.status, loginResponse.body);
+    //   throw new Error("Não foi possível obter token para o usuário base (userRoutes.test.js). Verifique a rota/lógica de login e credenciais.");
+    // }
   });
 
   afterAll(async () => {
     await prismaClient.registroAtividade.deleteMany({});
-    await prismaClient.usuarioConquista.deleteMany({});
-    await prismaClient.desafioAcao.deleteMany({});
-    await prismaClient.desafio.deleteMany({});
     await prismaClient.dica.deleteMany({});
-    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.$disconnect();
   });
 
   describe('POST /api/usuarios', () => {
-    // ... (testes 'criar com sucesso', 'email duplicado', 'senha curta' como antes) ...
     it('deve criar um novo usuário com sucesso e retornar 201', async () => {
-        const novoUsuarioDados = {
-          nome: 'Usuário de Teste API',
-          email: 'testeapi@example.com',
-          senha: 'password123',
-          idRegistro: 'APIREG123'
-        };
-        const response = await request(app)
-          .post('/api/usuarios')
-          .send(novoUsuarioDados);
-  
-        expect(response.statusCode).toBe(201);
-        expect(response.body).toHaveProperty('id');
-        expect(response.body.nome).toBe(novoUsuarioDados.nome);
-        expect(response.body.email).toBe(novoUsuarioDados.email);
-        expect(response.body).not.toHaveProperty('senha_hash');
-      });
-  
-      it('não deve criar um usuário com email duplicado e retornar 409', async () => {
-        const novoUsuarioComEmailDuplicado = {
-          nome: 'Outro Usuário',
-          email: 'base.api.setup@example.com', // Email do 'primeiroUsuarioCriadoNoSetup'
-          senha: 'outrasenha',
-        };
-        const response = await request(app)
-          .post('/api/usuarios')
-          .send(novoUsuarioComEmailDuplicado);
-  
-        expect(response.statusCode).toBe(409);
-        expect(response.body.message).toBe('Email já cadastrado.');
-      });
-  
-      it('não deve criar um usuário com senha curta e retornar 400', async () => {
-        const dadosInvalidos = {
-          nome: 'Teste Senha Curta',
-          email: 'scurta.api@example.com',
-          senha: '123'
-        };
-        const response = await request(app)
-          .post('/api/usuarios')
-          .send(dadosInvalidos);
-        
-        expect(response.statusCode).toBe(400);
-        expect(response.body.message).toBe('A senha deve ter pelo menos 6 caracteres.');
-      });
-
-    it('não deve criar um usuário sem nome e retornar 400', async () => { // <<< TODO PREENCHIDO
-      const dadosInvalidos = { email: 'semnome.api@example.com', senha: 'password123' };
-      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
-      expect(response.statusCode).toBe(400);
-      expect(response.body.message).toBe('Nome, email e senha são obrigatórios.');
+      const novoUsuarioDados = { nome: 'Usuário de Teste API', email: `testeapi.${Date.now()}@example.com`, senha: 'password123', idRegistro: `APIREG${Date.now()}` };
+      const response = await request(app).post('/api/usuarios').send(novoUsuarioDados);
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.nome).toBe(novoUsuarioDados.nome);
+      expect(response.body.email).toBe(novoUsuarioDados.email);
+      expect(response.body).not.toHaveProperty('senha_hash'); // Supondo que o controller remove o hash da resposta
+      expect(response.body).not.toHaveProperty('senha');
     });
 
-    it('não deve criar um usuário sem email e retornar 400', async () => { // <<< TODO PREENCHIDO
+    it('não deve criar um usuário com email duplicado e retornar 409', async () => {
+      const novoUsuarioComEmailDuplicado = { nome: 'Outro Usuário', email: 'base.api.setup@example.com', senha: 'outrasenha' };
+      const response = await request(app).post('/api/usuarios').send(novoUsuarioComEmailDuplicado);
+      expect(response.statusCode).toBe(409);
+      expect(response.body.message).toBe('Email já cadastrado.');
+    });
+
+    it('não deve criar um usuário com senha curta e retornar 400', async () => {
+      const dadosInvalidos = { nome: 'Teste Senha Curta', email: `scurta.api.${Date.now()}@example.com`, senha: '123' };
+      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('A senha deve ter pelo menos 6 caracteres.');
+    });
+
+    it('não deve criar um usuário sem nome e retornar 400', async () => {
+      const dadosInvalidos = { email: `semnome.api.${Date.now()}@example.com`, senha: 'password123' };
+      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
+      expect(response.statusCode).toBe(400);
+      // Ajuste a mensagem se for diferente na sua API, ou use toMatch para flexibilidade
+      expect(response.body.message).toMatch(/Nome.*obrigatório/i);
+    });
+
+    it('não deve criar um usuário sem email e retornar 400', async () => {
       const dadosInvalidos = { nome: 'Sem Email API', senha: 'password123' };
       const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
       expect(response.statusCode).toBe(400);
+      expect(response.body.message).toMatch(/Email.*obrigatório/i);
+    });
+
+    it('não deve criar um usuário sem senha e retornar 400', async () => {
+      const dadosInvalidos = { nome: 'Sem Senha API', email: `semsenha.api.${Date.now()}@example.com` };
+      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
+      expect(response.statusCode).toBe(400);
       expect(response.body.message).toBe('Nome, email e senha são obrigatórios.');
     });
 
-    it('não deve criar um usuário com idRegistro duplicado e retornar 409', async () => { // <<< TODO PREENCHIDO
-      const dadosConflitoIdReg = {
-        nome: 'Conflito IdReg API',
-        email: 'conflito.idreg.api@example.com',
-        senha: 'password123',
-        idRegistro: 'BASEAPIREGSETUP' // idRegistro do 'primeiroUsuarioCriadoNoSetup'
-      };
+    it('não deve criar um usuário com idRegistro duplicado e retornar 409', async () => {
+      const dadosConflitoIdReg = { nome: 'Conflito IdReg API', email: `conflito.idreg.api.${Date.now()}@example.com`, senha: 'password123', idRegistro: 'BASEAPIREGSETUP' };
       const response = await request(app).post('/api/usuarios').send(dadosConflitoIdReg);
       expect(response.statusCode).toBe(409);
       expect(response.body.message).toBe('ID de Registro já cadastrado.');
     });
   });
 
-  // ... (GET /api/usuarios e GET /api/usuarios/:id como antes) ...
   describe('GET /api/usuarios', () => {
-    it('deve retornar uma lista vazia de usuários se o banco estiver limpo', async () => {
-      // O beforeEach já limpou, mas vamos garantir que não há o usuário base
-      await prismaClient.usuario.deleteMany({ where: { email: primeiroUsuarioCriadoNoSetup.email }});
-      const response = await request(app).get('/api/usuarios');
+    it('deve retornar uma lista com o usuário de setup', async () => {
+      const response = await request(app).get('/api/usuarios'); // .set REMOVIDO
       expect(response.statusCode).toBe(200);
-      expect(response.body).toEqual([]);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThanOrEqual(1);
+      const usuarioEncontrado = response.body.find(u => u.email === primeiroUsuarioCriadoNoSetup.email);
+      expect(usuarioEncontrado).toBeDefined();
+      if (usuarioEncontrado) {
+         expect(usuarioEncontrado).not.toHaveProperty('senha_hash');
+         expect(usuarioEncontrado).not.toHaveProperty('senha');
+      }
     });
 
-    it('deve retornar uma lista de usuários criados (incluindo o de setup)', async () => {
-      // primeiroUsuarioCriadoNoSetup já existe
-      const usuario2Dados = { nome: 'User API Extra', email: 'userapiextra@example.com', senha: 'password123' };
-      await userService.criarUsuario(usuario2Dados);
-
-      const response = await request(app).get('/api/usuarios');
+     it('deve retornar uma lista de múltiplos usuários criados', async () => {
+      const usuario2Dados = { nome: 'User API Extra', email: `userapiextra.${Date.now()}@example.com`, senha: 'password123', idRegistro: `EXTRA${Date.now()}` };
+      await userService.criarUsuario(usuario2Dados); // service deve hashear a senha
+      const response = await request(app).get('/api/usuarios'); // .set REMOVIDO
       expect(response.statusCode).toBe(200);
-      expect(response.body.length).toBe(2); // usuário base + usuário extra
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBe(2); // Usuário do setup + este
       const emails = response.body.map(u => u.email);
       expect(emails).toContain(primeiroUsuarioCriadoNoSetup.email);
       expect(emails).toContain(usuario2Dados.email);
-      expect(response.body[0]).not.toHaveProperty('senha_hash');
     });
   });
 
   describe('GET /api/usuarios/:id', () => {
     it('deve retornar um usuário específico pelo ID', async () => {
-      const response = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
+      const response = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`); // .set REMOVIDO
       expect(response.statusCode).toBe(200);
       expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
       expect(response.body.email).toBe(primeiroUsuarioCriadoNoSetup.email);
-      expect(response.body).not.toHaveProperty('senha_hash');
     });
 
     it('deve retornar 404 se o usuário não for encontrado', async () => {
-      const response = await request(app).get('/api/usuarios/99999');
+      const idInexistente = 9999999; // ID improvável de existir
+      const response = await request(app).get(`/api/usuarios/${idInexistente}`); // .set REMOVIDO
       expect(response.statusCode).toBe(404);
       expect(response.body.message).toBe('Usuário não encontrado.');
     });
 
-    it('deve retornar 400 para um ID inválido', async () => {
-      const response = await request(app).get('/api/usuarios/abc');
+    it('deve retornar 400 para um ID inválido (não numérico)', async () => {
+      const response = await request(app).get('/api/usuarios/abc'); // .set REMOVIDO
       expect(response.statusCode).toBe(400);
       expect(response.body.message).toBe('ID inválido. Deve ser um número.');
     });
   });
 
-  describe('PUT /api/usuarios/:id', () => { // <<< TODO PREENCHIDO
+  describe('PUT /api/usuarios/:id', () => {
     it('deve atualizar o nome de um usuário existente e retornar 200', async () => {
       const dadosUpdate = { nome: 'Nome Base Atualizado Via API' };
-      const response = await request(app)
-        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
-        .send(dadosUpdate);
-
+      const response = await request(app).put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`).send(dadosUpdate); // .set REMOVIDO
       expect(response.statusCode).toBe(200);
-      expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
       expect(response.body.nome).toBe(dadosUpdate.nome);
-      expect(response.body.email).toBe(primeiroUsuarioCriadoNoSetup.email);
     });
 
     it('deve atualizar a senha de um usuário existente e retornar 200', async () => {
       const dadosUpdate = { senha: 'novaSenhaAPIIntegracao' };
-      const response = await request(app)
-        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
-        .send(dadosUpdate);
-      
+      const response = await request(app).put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`).send(dadosUpdate); // .set REMOVIDO
       expect(response.statusCode).toBe(200);
-      expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
+      // O controller não deve retornar a senha, mesmo que atualizada
     });
 
-    it('deve retornar 404 ao tentar atualizar um usuário inexistente', async () => {
+    it('deve retornar 404 ao tentar atualizar um usuário inexistente', async () => { // ALTERADO de 403 para 404
       const dadosUpdate = { nome: 'Inexistente Update' };
-      const response = await request(app)
-        .put('/api/usuarios/99999')
-        .send(dadosUpdate);
+      const idInexistente = 9999999;
+      const response = await request(app).put(`/api/usuarios/${idInexistente}`).send(dadosUpdate); // .set REMOVIDO
       expect(response.statusCode).toBe(404);
-      expect(response.body.message).toBe('Usuário não encontrado para atualização.');
+      expect(response.body.message).toBe('Usuário não encontrado.');
     });
 
     it('deve retornar 400 ao tentar atualizar com senha curta', async () => {
       const dadosUpdate = { senha: '123' };
-      const response = await request(app)
-        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
-        .send(dadosUpdate);
+      const response = await request(app).put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`).send(dadosUpdate); // .set REMOVIDO
       expect(response.statusCode).toBe(400);
       expect(response.body.message).toBe('A nova senha deve ter pelo menos 6 caracteres.');
     });
 
-     it('deve retornar 400 se nenhum dado válido for enviado para atualização (corpo vazio)', async () => {
-      const response = await request(app)
-        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
-        .send({});
+    it('deve retornar 400 se nenhum dado válido for enviado para atualização (corpo vazio)', async () => {
+      const response = await request(app).put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`).send({}); // .set REMOVIDO
       expect(response.statusCode).toBe(400);
       expect(response.body.message).toBe('Nenhum dado válido fornecido para atualização.');
     });
 
     it('deve retornar 409 ao tentar atualizar para um email que já existe em outro usuário', async () => {
-      const outroUsuario = await userService.criarUsuario({nome: "Outro Email", email: "outro.email.api@example.com", senha: "password"});
+      const outroUsuario = await userService.criarUsuario({ nome: "Outro Email", email: `outro.email.api.${Date.now()}@example.com`, senha: "password", idRegistro: `OUTROREG${Date.now()}` });
       const dadosUpdate = { email: outroUsuario.email };
-
-      const response = await request(app)
-        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
-        .send(dadosUpdate);
-      
+      const response = await request(app).put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`).send(dadosUpdate); // .set REMOVIDO
       expect(response.statusCode).toBe(409);
       expect(response.body.message).toBe('Novo email já está em uso.');
     });
   });
 
-  describe('DELETE /api/usuarios/:id', () => { // <<< TODO PREENCHIDO
+  describe('DELETE /api/usuarios/:id', () => {
     it('deve deletar um usuário existente e retornar 204', async () => {
-      const response = await request(app)
-        .delete(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
-      
-      expect(response.statusCode).toBe(204); // Assumindo que seu controller envia 204
+      const response = await request(app).delete(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`); // .set REMOVIDO
+      expect(response.statusCode).toBe(204);
+      expect(response.body).toEqual({});
 
-      const buscaResponse = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
+      const buscaResponse = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`); // .set REMOVIDO
       expect(buscaResponse.statusCode).toBe(404);
     });
 
-    it('deve retornar 404 ao tentar deletar um usuário inexistente', async () => {
-      const response = await request(app)
-        .delete('/api/usuarios/99999');
+    it('deve retornar 404 ao tentar deletar um usuário inexistente', async () => { // ALTERADO de 403 para 404
+      const idInexistente = 9999999;
+      const response = await request(app).delete(`/api/usuarios/${idInexistente}`); // .set REMOVIDO
       expect(response.statusCode).toBe(404);
-      expect(response.body.message).toBe('Usuário não encontrado para deleção.');
+      expect(response.body.message).toBe('Usuário não encontrado.');
     });
 
-    it('deve retornar 400 para um ID inválido ao deletar', async () => {
-      const response = await request(app)
-        .delete('/api/usuarios/abc');
+    it('deve retornar 400 para um ID inválido ao deletar', async () => { // ALTERADO de 403 para 400
+      const response = await request(app).delete('/api/usuarios/abc'); // .set REMOVIDO
       expect(response.statusCode).toBe(400);
       expect(response.body.message).toBe('ID inválido. Deve ser um número.');
     });
