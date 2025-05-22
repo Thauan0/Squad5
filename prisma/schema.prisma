@@ -2,11 +2,13 @@
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  directUrl = env("DATABASE_URL_UNPOOLED") // Bom para migrations e introspection
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // ADICIONE ESTA LINHA:
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 model Usuario {
@@ -20,8 +22,8 @@ model Usuario {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   registrosAtividade RegistroAtividade[]
-  // refreshTokens   RefreshToken[]      // LINHA REMOVIDA (já estava)
-  // conquistas      UsuarioConquista[]  // LINHA REMOVIDA AGORA
+  // refreshTokens   RefreshToken[]
+  // conquistas      UsuarioConquista[]
 
   @@map("usuarios")
 }
@@ -49,7 +51,7 @@ model AcaoSustentavel {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   registrosAtividade RegistroAtividade[]
-  // desafios        DesafioAcao[]       // REMOVER SE ESTIVER AQUI (parece que já estava, mas confira)
+  // desafios        DesafioAcao[]
 
   @@map("acoes_sustentaveis")
 }
