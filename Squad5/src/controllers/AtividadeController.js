@@ -1,6 +1,7 @@
-import * as AtividadeService from "../services/AtividadeService.test";
+import * as AtividadeService from "../services/AtividadeService.test.js";
 
-export async function listarAtividadesPorUsuario(req, res) {  //revisartree -L 2
+export default new class AtividadeController { 
+ static async listarAtividadesPorUsuario(req, res) {  //revisartree -L 2
 
     try {
         const { usuario_id } = req.params;
@@ -11,7 +12,7 @@ export async function listarAtividadesPorUsuario(req, res) {  //revisartree -L 2
     }
 }
 
-export async function obterAtividadePorId(req, res) {
+  static async obterAtividadePorId(req, res) {
     try {
         const { id } = req.params;
         const atividade = await AtividadeService.obterAtividadePorId(id);
@@ -24,7 +25,7 @@ export async function obterAtividadePorId(req, res) {
     }
 }
 
-export async function atualizarAtividade(req, res) {
+ static async atualizarAtividade(req, res) {
     try {
         const { id } = req.params;
         const novosDados = req.body;
@@ -35,7 +36,7 @@ export async function atualizarAtividade(req, res) {
     }
 }
 
-export async function deletarAtividade(req, res) {
+ static async deletarAtividade(req, res) {
     try {
         const { id } = req.params;
         await AtividadeService.deletarAtividade(id);
@@ -43,4 +44,5 @@ export async function deletarAtividade(req, res) {
     } catch (error) {
         res.status(500).json({ error: "Erro ao deletar atividade" });
     }
+}
 }
