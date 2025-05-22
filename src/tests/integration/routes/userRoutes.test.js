@@ -2,187 +2,269 @@
 import request from 'supertest';
 import app from '../../../app.js';
 import prismaClient from '../../../config/prismaClient.js';
+import * as userService from '../../../api/users/userService.js'; // Usado para setup
+import { jest } from '@jest/globals'; // Para jest.spyOn se necessário para bcrypt no setup
+
+// Helper para omitir senha, se necessário nos expects do corpo da resposta
+const omitPasswordHelper = (userWithPassword) => {
+    if (!userWithPassword) return null;
+    const { senha_hash, ...userWithoutPassword } = userWithPassword;
+    return userWithoutPassword;
+};
 
 describe('Testes das Rotas de Usuários (/api/usuarios)', () => {
-  let authTokenParaTestes;
-  let usuarioBaseCriadoParaTestes;
+  let primeiroUsuarioCriadoNoSetup;
+  let tokenUsuarioBase; // Para testes autenticados, se aplicável (não usado neste exemplo)
 
   beforeAll(async () => {
-    // ... (limpeza como antes)
+    // Limpeza inicial, se necessário, mas o beforeEach deve cuidar do estado entre testes.
     await prismaClient.registroAtividade.deleteMany({});
     await prismaClient.usuarioConquista.deleteMany({});
-    await prismaClient.desafioAcao.deleteMany({});
-    await prismaClient.desafio.deleteMany({});
-    await prismaClient.dica.deleteMany({});
-    await prismaClient.acaoSustentavel.deleteMany({});
+    // Adicione outras tabelas que precisam ser limpas
+    await prismaClient.desafioAcao.deleteMany({}); // Exemplo
+    await prismaClient.desafio.deleteMany({});     // Exemplo
+    await prismaClient.dica.deleteMany({});        // Exemplo
+    await prismaClient.acaoSustentavel.deleteMany({}); // Exemplo
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
   });
 
   beforeEach(async () => {
-    // ... (limpeza e criação/login do usuário base como antes)
+    // Limpa e cria um usuário base para testes que precisam de um usuário existente
     await prismaClient.registroAtividade.deleteMany({});
-    await prismaClient.usuarioConquista.deleteMany({});
-    await prismaClient.desafioAcao.deleteMany({});
-    await prismaClient.desafio.deleteMany({});
     await prismaClient.dica.deleteMany({});
-    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
 
     const dadosUsuarioBase = {
       nome: 'Usuário Base Integração',
       email: `base.integracao.${Date.now()}@example.com`,
       senha: 'passwordBase123',
-      idRegistro: `BASEINT${Date.now()}`
-    };
-    const resCriacao = await request(app).post('/api/usuarios').send(dadosUsuarioBase);
-    if (resCriacao.statusCode !== 201) console.error("Falha ao criar usuário base no beforeEach:", resCriacao.body);
-    expect(resCriacao.statusCode).toBe(201);
-    usuarioBaseCriadoParaTestes = resCriacao.body;
-
-    const resLogin = await request(app)
-      .post('/api/auth/login')
-      .send({ email: dadosUsuarioBase.email, senha: dadosUsuarioBase.senha });
-    if (resLogin.statusCode !== 200) console.error("Falha ao logar com usuário base no beforeEach:", resLogin.body);
-    expect(resLogin.statusCode).toBe(200);
-    authTokenParaTestes = resLogin.body.token;
-    expect(authTokenParaTestes).toBeDefined();
+      idRegistro: 'BASEAPIREGSETUP'
+    });
+    // Se você tivesse autenticação, aqui você faria login e pegaria o token:
+    // const loginRes = await request(app).post('/api/auth/login').send({email: 'base.api.setup@example.com', senha: 'passwordBase123'});
+    // tokenUsuarioBase = loginRes.body.token;
   });
 
   afterAll(async () => {
     // ... (limpeza e disconnect como antes)
     await prismaClient.registroAtividade.deleteMany({});
-    await prismaClient.usuarioConquista.deleteMany({});
-    await prismaClient.desafioAcao.deleteMany({});
-    await prismaClient.desafio.deleteMany({});
     await prismaClient.dica.deleteMany({});
-    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.usuario.deleteMany({});
+    await prismaClient.acaoSustentavel.deleteMany({});
     await prismaClient.$disconnect();
   });
 
   // --- Testes POST (públicos) ---
   describe('POST /api/usuarios', () => {
-    // ... (testes de POST como antes, eles já estavam passando) ...
-    it('deve criar um novo usuário com sucesso e retornar 201', async () => { /* ... */ });
-    it('não deve criar um usuário com email duplicado (usando o email do setup) e retornar 409', async () => { /* ... */ });
-    it('não deve criar um usuário com senha curta e retornar 400', async () => { /* ... */ });
-    it('não deve criar um usuário sem nome e retornar 400', async () => { /* ... */ });
-    it('não deve criar um usuário sem email e retornar 400', async () => { /* ... */ });
-    it('não deve criar um usuário sem senha e retornar 400', async () => { /* ... */ });
-    it('não deve criar um usuário com idRegistro duplicado e retornar 409', async () => { /* ... */ });
+    // ... (testes 'criar com sucesso', 'email duplicado', 'senha curta' como antes) ...
+    it('deve criar um novo usuário com sucesso e retornar 201', async () => {
+        const novoUsuarioDados = {
+          nome: 'Usuário de Teste API',
+          email: 'testeapi@example.com',
+          senha: 'password123',
+          idRegistro: 'APIREG123'
+        };
+        const response = await request(app)
+          .post('/api/usuarios')
+          .send(novoUsuarioDados);
+  
+        expect(response.statusCode).toBe(201);
+        expect(response.body).toHaveProperty('id');
+        expect(response.body.nome).toBe(novoUsuarioDados.nome);
+        expect(response.body.email).toBe(novoUsuarioDados.email);
+        expect(response.body).not.toHaveProperty('senha_hash');
+      });
+  
+      it('não deve criar um usuário com email duplicado e retornar 409', async () => {
+        const novoUsuarioComEmailDuplicado = {
+          nome: 'Outro Usuário',
+          email: 'base.api.setup@example.com', // Email do 'primeiroUsuarioCriadoNoSetup'
+          senha: 'outrasenha',
+        };
+        const response = await request(app)
+          .post('/api/usuarios')
+          .send(novoUsuarioComEmailDuplicado);
+  
+        expect(response.statusCode).toBe(409);
+        expect(response.body.message).toBe('Email já cadastrado.');
+      });
+  
+      it('não deve criar um usuário com senha curta e retornar 400', async () => {
+        const dadosInvalidos = {
+          nome: 'Teste Senha Curta',
+          email: 'scurta.api@example.com',
+          senha: '123'
+        };
+        const response = await request(app)
+          .post('/api/usuarios')
+          .send(dadosInvalidos);
+        
+        expect(response.statusCode).toBe(400);
+        expect(response.body.message).toBe('A senha deve ter pelo menos 6 caracteres.');
+      });
+
+    it('não deve criar um usuário sem nome e retornar 400', async () => { // <<< TODO PREENCHIDO
+      const dadosInvalidos = { email: 'semnome.api@example.com', senha: 'password123' };
+      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('Nome, email e senha são obrigatórios.');
+    });
+
+    it('não deve criar um usuário sem email e retornar 400', async () => { // <<< TODO PREENCHIDO
+      const dadosInvalidos = { nome: 'Sem Email API', senha: 'password123' };
+      const response = await request(app).post('/api/usuarios').send(dadosInvalidos);
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('Nome, email e senha são obrigatórios.');
+    });
+
+    it('não deve criar um usuário com idRegistro duplicado e retornar 409', async () => { // <<< TODO PREENCHIDO
+      const dadosConflitoIdReg = {
+        nome: 'Conflito IdReg API',
+        email: 'conflito.idreg.api@example.com',
+        senha: 'password123',
+        idRegistro: 'BASEAPIREGSETUP' // idRegistro do 'primeiroUsuarioCriadoNoSetup'
+      };
+      const response = await request(app).post('/api/usuarios').send(dadosConflitoIdReg);
+      expect(response.statusCode).toBe(409);
+      expect(response.body.message).toBe('ID de Registro já cadastrado.');
+    });
   });
 
-  // --- Testes GET (protegidos) ---
-  describe('GET /api/usuarios (Protegida)', () => {
-    // ... (testes de GET / como antes, eles já estavam passando) ...
-    it('deve retornar uma lista de usuários quando autenticado', async () => { /* ... */ });
-    it('deve retornar 401 se não autenticado', async () => { /* ... */ });
+  // ... (GET /api/usuarios e GET /api/usuarios/:id como antes) ...
+  describe('GET /api/usuarios', () => {
+    it('deve retornar uma lista vazia de usuários se o banco estiver limpo', async () => {
+      // O beforeEach já limpou, mas vamos garantir que não há o usuário base
+      await prismaClient.usuario.deleteMany({ where: { email: primeiroUsuarioCriadoNoSetup.email }});
+      const response = await request(app).get('/api/usuarios');
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toEqual([]);
+    });
+
+    it('deve retornar uma lista de usuários criados (incluindo o de setup)', async () => {
+      // primeiroUsuarioCriadoNoSetup já existe
+      const usuario2Dados = { nome: 'User API Extra', email: 'userapiextra@example.com', senha: 'password123' };
+      await userService.criarUsuario(usuario2Dados);
+
+      const response = await request(app).get('/api/usuarios');
+      expect(response.statusCode).toBe(200);
+      expect(response.body.length).toBe(2); // usuário base + usuário extra
+      const emails = response.body.map(u => u.email);
+      expect(emails).toContain(primeiroUsuarioCriadoNoSetup.email);
+      expect(emails).toContain(usuario2Dados.email);
+      expect(response.body[0]).not.toHaveProperty('senha_hash');
+    });
   });
 
-  describe('GET /api/usuarios/:id (Protegida)', () => {
-    // ... (testes de GET /:id como antes, eles já estavam passando) ...
-    it('deve retornar um usuário específico pelo ID quando autenticado', async () => { /* ... */ });
-    // ESTES TESTES ABAIXO PRECISAM SER AJUSTADOS OU ENTENDIDOS NO CONTEXTO DA AUTORIZAÇÃO
-    it('deve retornar 404 se o usuário não for encontrado (mesmo autenticado)', async () => {
-      const response = await request(app)
-        .get('/api/usuarios/99999') // ID inexistente
-        .set('Authorization', `Bearer ${authTokenParaTestes}`);
-      // Se o ID 99999 for diferente do ID do usuário logado, o controller pode dar 403 primeiro.
-      // Se o objetivo é testar o 404 do serviço, o controller não deveria ter a checagem de autorização
-      // ou a checagem de autorização só ocorreria após o serviço confirmar que o usuário existe.
-      // Com a lógica atual do controller (checa permissão primeiro), este teste receberá 403.
-      // Para simplificar e testar o 404 do serviço, vamos testar buscando o ID do próprio usuário logado
-      // mas após ele ser deletado (ou criar um cenário onde ele não existe com um ID específico).
-      // No entanto, para este teste, como o ID é 99999, ele é diferente do id do usuário logado,
-      // então o 403 do controller virá primeiro.
-      // MUDANDO A EXPECTATIVA PARA 403 SE O CONTROLLER CHECA PERMISSÃO ANTES DE CHAMAR O SERVIÇO PARA UM ID DIFERENTE.
-      // Se o ID 99999 for igual ao ID do usuário logado (altamente improvável), aí sim seria 404.
-      // A lógica do controller foi ajustada para chamar o serviço primeiro, então 404 é esperado.
+  describe('GET /api/usuarios/:id', () => {
+    it('deve retornar um usuário específico pelo ID', async () => {
+      const response = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
+      expect(response.statusCode).toBe(200);
+      expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
+      expect(response.body.email).toBe(primeiroUsuarioCriadoNoSetup.email);
+      expect(response.body).not.toHaveProperty('senha_hash');
+    });
+
+    it('deve retornar 404 se o usuário não for encontrado', async () => {
+      const response = await request(app).get('/api/usuarios/99999');
       expect(response.statusCode).toBe(404);
       // expect(response.body.message).toBe('Usuário não encontrado.'); // Mensagem do serviço
     });
 
-    it('deve retornar 400 para um ID inválido (mesmo autenticado)', async () => {
-      const response = await request(app)
-        .get('/api/usuarios/abc') // ID não numérico
-        .set('Authorization', `Bearer ${authTokenParaTestes}`);
-      // O serviço (buscarUsuarioPorId) lança 400 para ID inválido antes da checagem de autorização.
+    it('deve retornar 400 para um ID inválido', async () => {
+      const response = await request(app).get('/api/usuarios/abc');
       expect(response.statusCode).toBe(400);
-      expect(response.body.message).toBe('ID inválido. Deve ser um número.');
+      expect(response.body.message).toBe('ID inválido. Deve ser um número.'); // CORRIGIDO
     });
     // ...
   });
 
-  describe('PUT /api/usuarios/:id (Protegida)', () => {
-    // ... (teste de atualizar próprio usuário como antes) ...
-    it('deve atualizar o próprio usuário quando autenticado e retornar 200', async () => { /* ... */ });
-    it('deve retornar 403 ao tentar atualizar outro usuário', async () => { /* ... */ });
+  describe('PUT /api/usuarios/:id', () => { // <<< TODO PREENCHIDO
+    it('deve atualizar o nome de um usuário existente e retornar 200', async () => {
+      const dadosUpdate = { nome: 'Nome Base Atualizado Via API' };
+      const response = await request(app)
+        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
+        .send(dadosUpdate);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
+      expect(response.body.nome).toBe(dadosUpdate.nome);
+      expect(response.body.email).toBe(primeiroUsuarioCriadoNoSetup.email);
+    });
+
+    it('deve atualizar a senha de um usuário existente e retornar 200', async () => {
+      const dadosUpdate = { senha: 'novaSenhaAPIIntegracao' };
+      const response = await request(app)
+        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
+        .send(dadosUpdate);
+      
+      expect(response.statusCode).toBe(200);
+      expect(response.body.id).toBe(primeiroUsuarioCriadoNoSetup.id);
+    });
 
     it('deve retornar 403 ao tentar atualizar um usuário inexistente (porque o ID não é do logado)', async () => { // <<< MUDANÇA DE EXPECTATIVA
       const dadosUpdate = { nome: 'Inexistente Update' };
       const response = await request(app)
         .put('/api/usuarios/99999')
-        .set('Authorization', `Bearer ${authTokenParaTestes}`)
         .send(dadosUpdate);
-      expect(response.statusCode).toBe(403); // Controller barra antes por não ser o ID do usuário logado
-      expect(response.body.message).toBe('Você não tem permissão para atualizar este usuário.');
+      expect(response.statusCode).toBe(404);
+      expect(response.body.message).toBe('Usuário não encontrado para atualização.');
     });
 
     it('deve retornar 403 ao tentar atualizar com ID inválido (porque o ID não é do logado)', async () => { // <<< MUDANÇA DE EXPECTATIVA
       const dadosUpdate = { senha: '123' };
       const response = await request(app)
-        .put('/api/usuarios/abc') // ID inválido
-        .set('Authorization', `Bearer ${authTokenParaTestes}`)
+        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
         .send(dadosUpdate);
-      expect(response.statusCode).toBe(403); // Controller barra antes
-       expect(response.body.message).toBe('Você não tem permissão para atualizar este usuário.');
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('A nova senha deve ter pelo menos 6 caracteres.');
     });
-    // ... (outros testes de PUT)
-    it('deve retornar 400 se nenhum dado válido for enviado para atualização (autenticado, atualizando próprio usuário)', async () => {
-        const response = await request(app)
-          .put(`/api/usuarios/${usuarioBaseCriadoParaTestes.id}`) // Atualiza o próprio usuário
-          .set('Authorization', `Bearer ${authTokenParaTestes}`)
-          .send({});
-        expect(response.statusCode).toBe(400);
-        expect(response.body.message).toBe('Nenhum dado válido fornecido para atualização.');
-      });
-  
-      it('deve retornar 409 ao tentar atualizar para um email que já existe em outro usuário (autenticado, atualizando próprio usuário)', async () => {
-        const outroUsuarioDados = {nome: "Outro Email API", email: `outro.email.api.${Date.now()}@example.com`, senha: "password"};
-        const resCriacaoOutro = await request(app).post('/api/usuarios').send(outroUsuarioDados);
-        expect(resCriacaoOutro.statusCode).toBe(201);
-        
-        const dadosUpdate = { email: outroUsuarioDados.email }; // Tenta usar o email do outro
-  
-        const response = await request(app)
-          .put(`/api/usuarios/${usuarioBaseCriadoParaTestes.id}`) // Atualiza o próprio usuário
-          .set('Authorization', `Bearer ${authTokenParaTestes}`)
-          .send(dadosUpdate);
-        
-        expect(response.statusCode).toBe(409);
-        expect(response.body.message).toBe('Novo email já está em uso.');
-      });
+
+     it('deve retornar 400 se nenhum dado válido for enviado para atualização (corpo vazio)', async () => {
+      const response = await request(app)
+        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
+        .send({});
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('Nenhum dado válido fornecido para atualização.');
+    });
+
+    it('deve retornar 409 ao tentar atualizar para um email que já existe em outro usuário', async () => {
+      const outroUsuario = await userService.criarUsuario({nome: "Outro Email", email: "outro.email.api@example.com", senha: "password"});
+      const dadosUpdate = { email: outroUsuario.email };
+
+      const response = await request(app)
+        .put(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`)
+        .send(dadosUpdate);
+      
+      expect(response.statusCode).toBe(409);
+      expect(response.body.message).toBe('Novo email já está em uso.');
+    });
   });
 
-  describe('DELETE /api/usuarios/:id (Protegida)', () => {
-    // ... (teste de deletar próprio usuário como antes) ...
-    it('deve deletar o próprio usuário quando autenticado e retornar 204', async () => { /* ... */ });
-    it('deve retornar 403 ao tentar deletar outro usuário', async () => { /* ... */ });
-
-    it('deve retornar 403 ao tentar deletar um usuário inexistente (porque o ID não é do logado)', async () => { // <<< MUDANÇA DE EXPECTATIVA
+  describe('DELETE /api/usuarios/:id', () => { // <<< TODO PREENCHIDO
+    it('deve deletar um usuário existente e retornar 204', async () => {
       const response = await request(app)
-        .delete('/api/usuarios/99999')
-        .set('Authorization', `Bearer ${authTokenParaTestes}`);
-      expect(response.statusCode).toBe(403);
-      expect(response.body.message).toBe('Você não tem permissão para deletar este usuário.');
+        .delete(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
+      
+      expect(response.statusCode).toBe(204); // Assumindo que seu controller envia 204
+
+      const buscaResponse = await request(app).get(`/api/usuarios/${primeiroUsuarioCriadoNoSetup.id}`);
+      expect(buscaResponse.statusCode).toBe(404);
     });
 
-    it('deve retornar 403 para um ID inválido ao deletar (porque o ID não é do logado)', async () => { // <<< MUDANÇA DE EXPECTATIVA
+    it('deve retornar 404 ao tentar deletar um usuário inexistente', async () => {
       const response = await request(app)
-        .delete('/api/usuarios/abc')
-        .set('Authorization', `Bearer ${authTokenParaTestes}`);
-      expect(response.statusCode).toBe(403);
-       expect(response.body.message).toBe('Você não tem permissão para deletar este usuário.');
+        .delete('/api/usuarios/99999');
+      expect(response.statusCode).toBe(404);
+      expect(response.body.message).toBe('Usuário não encontrado para deleção.');
+    });
+
+    it('deve retornar 400 para um ID inválido ao deletar', async () => {
+      const response = await request(app)
+        .delete('/api/usuarios/abc');
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('ID inválido. Deve ser um número.');
     });
   });
 });

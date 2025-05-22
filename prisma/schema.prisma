@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 datasource db {
   provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
@@ -20,8 +20,8 @@ model Usuario {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   registrosAtividade RegistroAtividade[]
-  conquistas         UsuarioConquista[]
-  // refreshTokens      RefreshToken[]      // LINHA REMOVIDA
+  // refreshTokens   RefreshToken[]      // LINHA REMOVIDA (já estava)
+  // conquistas      UsuarioConquista[]  // LINHA REMOVIDA AGORA
 
   @@map("usuarios")
 }
@@ -34,8 +34,8 @@ model RegistroAtividade {
   acao_id     Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  usuario     Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade) // Adicionado onDelete
-  acao        AcaoSustentavel @relation(fields: [acao_id], references: [id], onDelete: Cascade) // Adicionado onDelete
+  usuario     Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  acao        AcaoSustentavel @relation(fields: [acao_id], references: [id], onDelete: Cascade)
 
   @@map("registros_atividade")
 }
@@ -49,49 +49,9 @@ model AcaoSustentavel {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   registrosAtividade RegistroAtividade[]
-  desafios           DesafioAcao[]
+  // desafios        DesafioAcao[]       // REMOVER SE ESTIVER AQUI (parece que já estava, mas confira)
 
   @@map("acoes_sustentaveis")
-}
-
-model Desafio {
-  id                Int       @id @default(autoincrement())
-  tipo              String?
-  titulo            String
-  descricao         String?
-  data_inicio       DateTime?
-  data_fim          DateTime?
-  pontos_recompensa Int
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  conquistasObtidas UsuarioConquista[]
-  acoes             DesafioAcao[]
-
-  @@map("desafios")
-}
-
-model DesafioAcao {
-  desafioId         Int
-  acaoSustentavelId Int
-  desafio           Desafio         @relation(fields: [desafioId], references: [id], onDelete: Cascade)
-  acaoSustentavel   AcaoSustentavel @relation(fields: [acaoSustentavelId], references: [id], onDelete: Cascade)
-  assignedAt        DateTime        @default(now())
-
-  @@id([desafioId, acaoSustentavelId])
-  @@map("desafios_acoes")
-}
-
-model UsuarioConquista {
-  id             Int       @id @default(autoincrement())
-  usuario_id     Int
-  id_desafio     Int
-  data_obtencao  DateTime  @default(now())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  usuario        Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
-  desafio        Desafio   @relation(fields: [id_desafio], references: [id], onDelete: Cascade)
-
-  @@map("usuario_conquistas")
 }
 
 model Dica {
@@ -104,16 +64,3 @@ model Dica {
 
   @@map("dicas")
 }
-
-// model RefreshToken { // MODEL INTEIRO REMOVIDO
-//   id        String   @id @default(cuid())
-//   token     String   @unique
-//   expiresAt DateTime
-//   revokedAt DateTime?
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   userId    Int
-//   usuario   Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
-//
-//   @@map("refresh_tokens")
-// }
