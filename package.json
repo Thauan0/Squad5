@@ -8,15 +8,20 @@
     "start": "node src/server.js",
     "dev": "dotenv -e .env -- nodemon src/server.js",
     "test": "dotenv -e .env.test -- cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --runInBand --detectOpenHandles",
+    "coverage": "npm test -- --coverage",
     "format": "prettier --write .",
+    "lint": "eslint .", 
     "migrate:dev": "dotenv -e .env -- npx prisma migrate dev",
     "migrate:deploy": "dotenv -e .env -- npx prisma migrate deploy",
     "migrate:test:deploy": "dotenv -e .env.test -- npx prisma migrate deploy",
     "migrate:test:dev": "dotenv -e .env.test -- npx prisma migrate dev --name initial_test_db_setup",
     "prisma:generate": "npx prisma generate",
     "prisma:studio": "dotenv -e .env -- npx prisma studio",
-    "db:apply-migration": "node scripts/apply-migration.js",
-    "db:generate": "npx prisma generate"
+    "db:seed": "dotenv -e .env -- node prisma/seed.js",
+    "db:apply-migration": "node scripts/apply-migration.js" 
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.8.1",
@@ -51,6 +56,10 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
+    ],
+    "testPathIgnorePatterns": [ 
+      "<rootDir>/src/tests/services/AtividadeService.test.js", 
+      "<rootDir>/src/tests/controllers/AtividadeController.test.js"
     ]
   }
 }

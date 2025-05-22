@@ -1,7 +1,8 @@
-import prismaClient from '../../config/prismaClient.js';
+// src/api/auth/authService.js
+import prismaClient from '../../config/prismaClient.js'; // Caminho de src/api/auth/ para src/config/
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { HttpError } from '../../utils/HttpError.js';
+import { HttpError } from '../../utils/HttpError.js';   // Caminho de src/api/auth/ para src/utils/
 
 /**
  * Autentica um usuário com base no email e senha.
@@ -20,7 +21,6 @@ export async function loginUsuario(email, senha) {
   });
 
   if (!usuario) {
-    // Mensagem genérica para não revelar se o email existe ou não
     throw new HttpError(401, 'Credenciais inválidas.');
   }
 
@@ -29,28 +29,26 @@ export async function loginUsuario(email, senha) {
     throw new HttpError(401, 'Credenciais inválidas.');
   }
 
-  // Usuário autenticado, gerar token JWT
   const payload = {
-    userId: usuario.id, // ID do usuário é crucial para identificar quem está logado
+    id: usuario.id, // Use 'id' para ser consistente com o que o authMiddleware espera em req.usuario.id
     email: usuario.email,
-    // Você pode adicionar outros dados ao payload se forem úteis e não sensíveis,
-    // como nome ou roles (perfis de acesso), ex: role: 'USUARIO_COMUM'
-    // nome: usuario.nome,
+    // nome: usuario.nome, // Opcional
   };
 
   if (!process.env.JWT_SECRET) {
     console.error('ERRO CRÍTICO: JWT_SECRET não está definido no arquivo .env');
-    throw new HttpError(500, 'Erro na configuração do servidor de autenticação.');
+    // Em produção, logar isso e retornar um erro genérico é melhor do que expor o problema.
+    throw new HttpError(500, 'Erro na configuração interna do servidor.');
   }
 
   const token = jwt.sign(
     payload,
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '1h' } // Usa do .env ou fallback para 1 hora
+    { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
   );
 
-  // A barra solitária foi removida daqui
-  const { senha_hash, ...usuarioSemSenha } = usuario;
+  // eslint-disable-next-line no-unused-vars
+  const { senha_hash, ...usuarioSemSenha } = usuario; // Removendo senha_hash da resposta
 
   return { usuario: usuarioSemSenha, token };
 }
