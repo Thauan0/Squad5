@@ -1,100 +1,118 @@
-import { PrismaClient } from '@prisma/client';
+// src/services/AtividadeService.js
+import prismaClient from '../config/prismaClient.js'; // Ajustado para ser relativo a src/services/
+import { HttpError } from '../utils/HttpError.js';   // Ajustado para ser relativo a src/services/
 
-const prisma = new PrismaClient();
-
+// Mantendo os nomes de função como você passou
 export async function criarAtividade(usuario_id, acao_id, observacao) {
-    try {
-        usuario_id = Number(usuario_id);
-        acao_id = Number(acao_id);
+  const numUsuarioId = Number(usuario_id);
+  const numAcaoId = Number(acao_id);
 
-        // 📌 1️⃣ Verifica se o usuário existe antes de criar
-        const usuarioExistente = await prisma.usuario.findUnique({ where: { id: usuario_id } });
-        if (!usuarioExistente) {
-            throw new Error("Usuário não encontrado. Verifique o ID do usuário.");
-        }
+  if (isNaN(numUsuarioId) || isNaN(numAcaoId)) {
+    throw new HttpError(400, "ID do usuário e ID da ação devem ser números.");
+  }
+  if (!numUsuarioId || !numAcaoId) { // Adicionando verificação se são vazios após conversão
+    throw new HttpError(400, "ID do usuário e ID da ação são obrigatórios.");
+  }
 
-        // 📌 2️⃣ Verifica se a ação sustentável existe antes de criar
-        const acaoExistente = await prisma.acaoSustentavel.findUnique({ where: { id: acao_id } });
-        if (!acaoExistente) {
-            throw new Error("Ação sustentável não encontrada. Verifique o ID da ação.");
-        }
+  const usuarioExistente = await prismaClient.usuario.findUnique({ where: { id: numUsuarioId } });
+  if (!usuarioExistente) {
+    throw new HttpError(404, "Usuário não encontrado. Verifique o ID do usuário.");
+  }
 
-        return await prisma.registroAtividade.create({ data: { usuario_id, acao_id, observacao } });
-    } catch (error) {
-        console.error("❌ Erro ao criar atividade:", error.message);
-        throw new Error("Erro ao criar atividade.");
-    }
+  const acaoExistente = await prismaClient.acaoSustentavel.findUnique({ where: { id: numAcaoId } });
+  if (!acaoExistente) {
+    throw new HttpError(404, "Ação sustentável não encontrada. Verifique o ID da ação.");
+  }
+
+  try {
+    return await prismaClient.registroAtividade.create({
+      data: {
+        usuario_id: numUsuarioId,
+        acao_id: numAcaoId,
+        observacao,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Erro Prisma ao criar atividade:", error.message);
+    throw new HttpError(500, "Erro ao criar atividade no banco de dados.");
+  }
 }
 
 export async function listarAtividadesPorUsuario(usuario_id) {
-    try {
-        usuario_id = Number(usuario_id);
+  const numUsuarioId = Number(usuario_id);
+  if (isNaN(numUsuarioId)) {
+    throw new HttpError(400, "ID do usuário inválido.");
+  }
 
-        // 📌 Verifica se o usuário existe antes de buscar atividades
-        const usuarioExistente = await prisma.usuario.findUnique({ where: { id: usuario_id } });
-        if (!usuarioExistente) {
-            throw new Error("Usuário não encontrado.");
-        }
+  const usuarioExistente = await prismaClient.usuario.findUnique({ where: { id: numUsuarioId } });
+  if (!usuarioExistente) {
+    throw new HttpError(404, "Usuário não encontrado ao listar atividades.");
+  }
 
-        return await prisma.registroAtividade.findMany({
-            where: { usuario_id },
-            include: { acao: true }
-        });
-    } catch (error) {
-        console.error("❌ Erro ao listar atividades:", error.message);
-        throw new Error("Erro ao listar atividades.");
-    }
+  return await prismaClient.registroAtividade.findMany({
+    where: { usuario_id: numUsuarioId },
+    include: { acao: true },
+  });
 }
 
 export async function obterAtividadePorId(id) {
-    try {
-        id = Number(id);
+  const numId = Number(id);
+  if (isNaN(numId)) {
+    throw new HttpError(400, "ID da atividade inválido.");
+  }
 
-        const atividade = await prisma.registroAtividade.findUnique({
-            where: { id },
-            include: { acao: true, usuario: true }
-        });
-        if (!atividade) {
-            throw new Error("Atividade não encontrada.");
-        }
+  const atividade = await prismaClient.registroAtividade.findUnique({
+    where: { id: numId },
+    include: { acao: true, usuario: true },
+  });
 
-        return atividade;
-    } catch (error) {
-        console.error("❌ Erro ao obter atividade:", error.message);
-        throw new Error("Erro ao obter atividade.");
-    }
+  if (!atividade) {
+    throw new HttpError(404, "Atividade não encontrada.");
+  }
+  return atividade;
 }
 
 export async function atualizarAtividade(id, novosDados) {
-    try {
-        id = Number(id);
+  const numId = Number(id);
+  if (isNaN(numId)) {
+    throw new HttpError(400, "ID da atividade inválido para atualização.");
+  }
 
-        // 📌 Verifica se a atividade existe antes de atualizar
-        const atividadeExistente = await prisma.registroAtividade.findUnique({ where: { id } });
-        if (!atividadeExistente) {
-            throw new Error("Atividade não encontrada.");
-        }
+  const atividadeExistente = await prismaClient.registroAtividade.findUnique({ where: { id: numId } });
+  if (!atividadeExistente) {
+    throw new HttpError(404, "Atividade não encontrada para atualização.");
+  }
 
-        return await prisma.registroAtividade.update({ where: { id }, data: novosDados });
-    } catch (error) {
-        console.error("❌ Erro ao atualizar atividade:", error.message);
-        throw new Error("Erro ao atualizar atividade.");
-    }
+  if (Object.keys(novosDados).length === 0) {
+    throw new HttpError(400, "Nenhum dado fornecido para atualização.");
+  }
+
+  try {
+    return await prismaClient.registroAtividade.update({
+      where: { id: numId },
+      data: novosDados,
+    });
+  } catch (error) {
+    console.error("❌ Erro Prisma ao atualizar atividade:", error.message);
+    throw new HttpError(500, "Erro ao atualizar atividade no banco de dados.");
+  }
 }
 
 export async function deletarAtividade(id) {
-    try {
-        id = Number(id);
+  const numId = Number(id);
+  if (isNaN(numId)) {
+    throw new HttpError(400, "ID da atividade inválido para deleção.");
+  }
 
-        // 📌 Verifica se a atividade existe antes de deletar
-        const atividadeExistente = await prisma.registroAtividade.findUnique({ where: { id } });
-        if (!atividadeExistente) {
-            throw new Error("Erro ao deletar: atividade não encontrada.");
-        }
+  const atividadeExistente = await prismaClient.registroAtividade.findUnique({ where: { id: numId } });
+  if (!atividadeExistente) {
+    throw new HttpError(404, "Atividade não encontrada para deleção."); // Mensagem um pouco mais específica
+  }
 
-        return await prisma.registroAtividade.delete({ where: { id } });
-    } catch (error) {
-        console.error("❌ Erro ao deletar atividade:", error.message);
-        throw new Error("Erro ao deletar atividade.");
-    }
+  try {
+    return await prismaClient.registroAtividade.delete({ where: { id: numId } });
+  } catch (error) {
+    console.error("❌ Erro Prisma ao deletar atividade:", error.message);
+    throw new HttpError(500, "Erro ao deletar atividade no banco de dados.");
+  }
 }
